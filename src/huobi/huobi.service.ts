@@ -76,7 +76,46 @@ export class HuobiService {
     };
   }
 
-  async requestSigned(
+  async requestPublic(
+    method: 'GET' | 'POST',
+    host: string,
+    path: string,
+    params: Record<string, any>,
+  ) {
+    const urlBase = `https://${host}${path}`;
+    const init: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    };
+
+    let url = urlBase;
+    if (method === 'GET') {
+      const qs = new URLSearchParams(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ).toString();
+      if (qs) url = `${urlBase}?${qs}`;
+    } else {
+      init.body = new URLSearchParams(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ).toString();
+    }
+
+    const response = await fetch(url, init);
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json')
+      ? await response.json()
+      : await response.text();
+
+    return {
+      status: response.status,
+      ok: response.ok,
+      data,
+    };
+  }
+
+    async requestSigned(
     method: 'GET' | 'POST',
     host: string,
     path: string,

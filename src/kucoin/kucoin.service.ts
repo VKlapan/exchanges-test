@@ -30,21 +30,22 @@ export class KucoinService {
     body: Record<string, any> | string | null,
     keyVersion = '2',
   ) {
-    const timestamp = Date.now().toString();
+    const timestamp = Date.now().toString(); //'1680885532722' 
 
     const requestPath = path;
     let queryString = '';
     if (method === 'GET' && body && typeof body === 'object') {
       queryString = '?' + new URLSearchParams(body as any).toString();
     }
-    const fullPathForPrehash = requestPath + queryString;
 
     const bodyStr =
-      body == null || method === 'GET'
+      body == null
         ? ''
         : typeof body === 'string'
           ? body
           : JSON.stringify(body);
+
+    const fullPathForPrehash = requestPath; // exclude queryString from prehash; include bodyStr instead
 
     const preHashPayload =
       timestamp + method.toUpperCase() + fullPathForPrehash + bodyStr;
@@ -64,6 +65,7 @@ export class KucoinService {
       'KC-API-TIMESTAMP': timestamp,
       'KC-API-PASSPHRASE': encodedPassphrase,
       'KC-API-KEY-VERSION': keyVersion,
+      'KC-API-PARTNER-VERIFY': 'true',
       'Content-Type': 'application/json',
     } as Record<string, string>;
 
@@ -105,18 +107,20 @@ export class KucoinService {
     host?: string;
     path?: string;
     keyVersion?: string;
+    body?: Record<string, any> | string | null;
   }) {
     const {
       host = 'api.kucoin.com',
       path = '/api/v1/broker/nd/info',
+      body,
       keyVersion,
     } = params;
 
     const request = this.generateBrokerInf0SignatureAndRequest(
-      'GET',
+      'POST',
       host,
       path,
-      null,
+      body || null,
       keyVersion,
     );
 
@@ -163,7 +167,7 @@ export class KucoinService {
     const upperMethod = method.toUpperCase();
 
     const bodyStr =
-      upperMethod === 'GET' || upperMethod === 'DELETE' || body == null
+      body == null
         ? ''
         : typeof body === 'string'
           ? body
@@ -174,7 +178,7 @@ export class KucoinService {
       queryString = '?' + new URLSearchParams(body as any).toString();
     }
 
-    const fullEndpointForPrehash = endpoint + queryString;
+    const fullEndpointForPrehash = endpoint; // exclude queryString from prehash; include bodyStr instead
 
     const preHashPayload =
       timestamp + upperMethod + fullEndpointForPrehash + bodyStr;
