@@ -58,8 +58,6 @@ export class KucoinService {
     passHmac.update(this.apiPassPhrase);
     const encodedPassphrase = passHmac.digest('base64');
 
-    console.log('!!!!!!!!!!!!!!!!!!!!!!!', this.secretKey);
-
     const headers = {
       'KC-API-KEY': this.apiKey,
       'KC-API-SIGN': signature,
