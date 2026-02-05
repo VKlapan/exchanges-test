@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from '../config/app-config.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -7,9 +8,13 @@ export class HuobiService {
   private readonly accessKey: string;
   private readonly secretKey: string;
 
-  constructor(private readonly configService: ConfigService) {
-    this.accessKey = this.configService.get<string>('HUOBI_HMAC') || '';
-    this.secretKey = this.configService.get<string>('HUOBI_SECRET_KEY') || '';
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly appConfig: AppConfigService,
+  ) {
+    const hu = this.appConfig.huobi;
+    this.accessKey = hu.accessKey;
+    this.secretKey = hu.secretKey;
   }
   generateSignatureAndRequest(
     method: 'GET' | 'POST',

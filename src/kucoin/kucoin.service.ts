@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from '../config/app-config.service';
 import { HttpService } from '@nestjs/axios';
 import * as crypto from 'crypto';
 
@@ -15,17 +16,15 @@ export class KucoinService {
   constructor(
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    private readonly appConfig: AppConfigService,
   ) {
-    this.apiKey = this.configService.get<string>('KUCOIN_API_KEY') || '';
-    this.secretKey = this.configService.get<string>('KUCOIN_SECRET_KEY') || '';
-    this.apiPassPhrase =
-      this.configService.get<string>('KUCOIN_API_PASSPHRASE') || '';
-    this.brokerName =
-      this.configService.get<string>('KUCOIN_BROKER_NAME') || '';
-    this.apiPartner =
-      this.configService.get<string>('KUCOIN_API_PARTNER') || '';
-    this.apiPartnerSecretKey =
-      this.configService.get<string>('KUCOIN_API_PARTNER_SECRETKEY') || '';
+    const ku = this.appConfig.kucoin;
+    this.apiKey = ku.apiKey;
+    this.secretKey = ku.secretKey;
+    this.apiPassPhrase = ku.apiPassPhrase;
+    this.brokerName = ku.brokerName;
+    this.apiPartner = ku.apiPartner;
+    this.apiPartnerSecretKey = ku.apiPartnerSecretKey;
   }
   generateBrokerInf0SignatureAndRequest(
     method: 'GET' | 'POST',
