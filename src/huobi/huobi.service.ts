@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppConfigService } from '../config/app-config.service';
+import { HttpService } from '@nestjs/axios';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class HuobiService {
   constructor(
     private readonly configService: ConfigService,
     private readonly appConfig: AppConfigService,
+    private readonly httpService: HttpService,
   ) {
     const hu = this.appConfig.huobi;
     this.accessKey = hu.accessKey;
@@ -107,15 +109,32 @@ export class HuobiService {
       ).toString();
     }
 
-    const response = await fetch(url, init);
-    const contentType = response.headers.get('content-type') || '';
-    const data = contentType.includes('application/json')
-      ? await response.json()
-      : await response.text();
+    const axiosReq: any = {
+      url: urlBase,
+      method,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      validateStatus: () => true,
+    };
+
+    if (method === 'GET') {
+      axiosReq.params = params;
+    } else {
+      axiosReq.data = new URLSearchParams(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ).toString();
+    }
+
+    const res = await this.httpService.axiosRef.request(axiosReq);
+
+    const status = res.status;
+    const ok = status >= 200 && status < 300;
+    const data = res.data;
 
     return {
-      status: response.status,
-      ok: response.ok,
+      status,
+      ok,
       data,
     };
   }
@@ -137,17 +156,31 @@ export class HuobiService {
       url = `https://${req.host}${req.path}`;
     }
 
-    const response = await fetch(url, init);
+    let res: any;
+    if (req.method === 'GET') {
+      res = await this.httpService.axiosRef.request({
+        url: req.url,
+        method: req.method,
+        headers: req.headers,
+        validateStatus: () => true,
+      });
+    } else {
+      res = await this.httpService.axiosRef.request({
+        url: `https://${req.host}${req.path}`,
+        method: req.method,
+        headers: req.headers,
+        data: req.signedParams,
+        validateStatus: () => true,
+      });
+    }
 
-    const contentType = response.headers.get('content-type') || '';
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const data = contentType.includes('application/json')
-      ? await response.json()
-      : await response.text();
+    const status = res.status;
+    const ok = status >= 200 && status < 300;
+    const data = res.data;
 
     return {
-      status: response.status,
-      ok: response.ok,
+      status,
+      ok,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       data,
     };
