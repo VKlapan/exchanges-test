@@ -33,4 +33,9 @@ export class KucoinController {
   getCurrencies() {
     return this.kucoinService.getCurrenciesWithChains();
   }
+
+  @Get('subaccounts')
+  getSubAccounts() {
+    return this.kucoinService.getSubAccounts();
+  }
 }

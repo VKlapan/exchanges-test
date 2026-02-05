@@ -349,7 +349,7 @@ export class KucoinService {
         raw: item,
       };
     });
-    console.log('coins', coins)
+    
     return coins;
   } catch (err) {
     if ((err as any).response && (err as any).response.data) {
@@ -359,5 +359,53 @@ export class KucoinService {
     }
     throw err;
   }
-}
+  }
+
+  async getSubAccounts(opts = {}) {
+  const apiKey = process.env.KUCOIN_MAIN_KEY || '';
+  const apiSecret = process.env.KUCOIN_MAIN_SECRET || '';
+  const apiPassphrase = process.env.KUCOIN_MAIN_PASSPHRASE || '';
+  const apiKeyVersion = process.env.KUCOIN_MAIN_KEY_VERSION || '2';
+  const timeoutMs = 15000;
+
+  const BASE = 'https://api.kucoin.com';
+  const path = '/api/v2/sub/user';
+  const method = 'GET';
+  const ts = Date.now().toString();
+
+  const prehash = `${ts}${method}${path}`;
+  const sign = crypto.createHmac('sha256', apiSecret).update(prehash).digest('base64');
+
+  const passphraseHeader =
+    String(apiKeyVersion) === '1'
+      ? apiPassphrase
+      : crypto.createHmac('sha256', apiSecret).update(apiPassphrase).digest('base64');
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'KC-API-KEY': apiKey,
+    'KC-API-SIGN': sign,
+    'KC-API-TIMESTAMP': ts,
+    'KC-API-PASSPHRASE': passphraseHeader,
+    'KC-API-KEY-VERSION': String(apiKeyVersion),
+  };
+
+  const res = await this.httpService.axiosRef.request({
+    baseURL: BASE,
+    url: path,
+    method,
+    headers,
+    timeout: timeoutMs,
+    validateStatus: () => true,
+  });
+
+  if (!res?.data) throw new Error(`Empty response (status ${res.status})`);
+
+  const { code, data, msg } = res.data;
+
+  if (code !== '200000') throw new Error(`KuCoin API error ${code}: ${msg || 'unknown'}`);
+
+  return data || [];
+  }
+
 }
