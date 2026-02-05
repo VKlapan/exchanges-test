@@ -28,4 +28,9 @@ export class KucoinController {
       host: 'api.kucoin.com',
     });
   }
+
+  @Get('currencies')
+  getCurrencies() {
+    return this.kucoinService.getCurrenciesWithChains();
+  }
 }

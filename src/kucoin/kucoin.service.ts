@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -11,7 +12,10 @@ export class KucoinService {
   private readonly apiPartner: string;
   private readonly apiPartnerSecretKey: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
+  ) {
     this.apiKey = this.configService.get<string>('KUCOIN_API_KEY') || '';
     this.secretKey = this.configService.get<string>('KUCOIN_SECRET_KEY') || '';
     this.apiPassPhrase =
@@ -127,20 +131,19 @@ export class KucoinService {
     console.log(request.url);
     console.log(request.headers);
 
-    const response = await fetch(request.url, {
+    const res = await this.httpService.axiosRef.request({
+      url: request.url,
       method: 'GET',
       headers: request.headers,
     });
 
-    const contentType = response.headers.get('content-type') || '';
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const data = contentType.includes('application/json')
-      ? await response.json()
-      : await response.text();
+    const status = res.status;
+    const ok = status >= 200 && status < 300;
+    const data = res.data;
 
     return {
-      status: response.status,
-      ok: response.ok,
+      status,
+      ok,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       data,
     };
@@ -245,19 +248,116 @@ export class KucoinService {
       init.body = request.body;
     }
 
-    const response = await fetch(request.url, init);
+    const axiosReq: any = {
+      url: request.url,
+      method: request.method,
+      headers: request.headers,
+    };
 
-    const contentType = response.headers.get('content-type') || '';
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const data = contentType.includes('application/json')
-      ? await response.json()
-      : await response.text();
+    if (
+      request.body &&
+      request.method !== 'GET' &&
+      request.method !== 'DELETE'
+    ) {
+      axiosReq.data = request.body;
+    }
+
+    const res = await this.httpService.axiosRef.request(axiosReq);
+
+    const status = res.status;
+    const ok = status >= 200 && status < 300;
+    const data = res.data;
 
     return {
-      status: response.status,
-      ok: response.ok,
+      status,
+      ok,
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       data,
     };
   }
+
+  async getCurrenciesWithChains(opts: { baseURL?: string; timeoutMs?: number } = {}) {
+  const baseURL = opts.baseURL || 'https://api.kucoin.com';
+  const timeout = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
+  const url = '/api/v3/currencies';
+
+  try {
+    const res = await this.httpService.axiosRef.request({
+      baseURL,
+      url,
+      method: 'GET',
+      timeout,
+      validateStatus: () => true,
+    });
+
+    if (!res || !res.data) {
+      throw new Error(`Empty response from KuCoin (http status ${res && res.status})`);
+    }
+
+    const { code, data, msg } = res.data;
+
+    if (code && code !== '200000') {
+      const reason = typeof msg === 'string' ? msg : JSON.stringify(res.data);
+      const err = new Error(`KuCoin API error code=${code}: ${reason}`);
+      (err as any).payload = res.data;
+      throw err;
+    }
+
+    if (!Array.isArray(data)) return [];
+
+    const coins = data.map(item => {
+      const {
+        currency,
+        name,
+        fullName,
+        precision,
+        confirms,
+        contractAddress,
+        isMarginEnabled,
+        isDebitEnabled,
+        chains,
+      } = item;
+
+      const normalizedChains = Array.isArray(chains)
+        ? chains.map(ch => ({
+            chainName: ch.chainName || '',
+            chainId: ch.chainId || '',
+            depositEnabled: Boolean(ch.isDepositEnabled),
+            withdrawEnabled: Boolean(ch.isWithdrawEnabled),
+            needTag: Boolean(ch.needTag),
+            confirms: Number(ch.confirms) || 0,
+            preConfirms: Number(ch.preConfirms) || 0,
+            depositMinSize: ch.depositMinSize ? Number(ch.depositMinSize) : null,
+            withdrawalMinSize: ch.withdrawalMinSize ? Number(ch.withdrawalMinSize) : null,
+            withdrawalMinFee: ch.withdrawalMinFee ? Number(ch.withdrawalMinFee) : null,
+            withdrawPrecision: ch.withdrawPrecision ? Number(ch.withdrawPrecision) : null,
+            contractAddress: ch.contractAddress || '',
+            raw: ch,
+          }))
+        : [];
+
+      return {
+        currency,
+        name,
+        fullName,
+        precision: Number(precision) || 0,
+        confirms: Number(confirms) || 0,
+        contractAddress: contractAddress || '',
+        isMarginEnabled: Boolean(isMarginEnabled),
+        isDebitEnabled: Boolean(isDebitEnabled),
+        chains: normalizedChains,
+        raw: item,
+      };
+    });
+    console.log('coins', coins)
+    return coins;
+  } catch (err) {
+    if ((err as any).response && (err as any).response.data) {
+      const e = new Error(`KuCoin request failed: ${JSON.stringify((err as any).response.data)}`);
+      (e as any).payload = (err as any).response.data;
+      throw e;
+    }
+    throw err;
+  }
+}
 }
