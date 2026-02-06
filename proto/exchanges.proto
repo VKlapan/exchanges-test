@@ -10,6 +10,7 @@ service KucoinService {
 	rpc GetAccounts (AccountsRequest) returns (GenericResponse);
 	rpc GetCurrencies (optionalTimeOutRequest) returns (GenericResponse);
 	rpc GetPrices (optionalTimeOutRequest) returns (GenericResponse);
+	rpc GetMarkPriceCurrent (MarkPriceRequest) returns (GenericResponse);
 	rpc GetSubAccounts (Empty) returns (GenericResponse);
 }
 
@@ -42,3 +43,8 @@ message optionalTimeOutRequest {
 	int32 timeoutMs = 1;
 }
 
+message MarkPriceRequest {
+	string symbol = 1;
+	// Optional timeout in milliseconds
+	int32 timeoutMs = 2;
+}

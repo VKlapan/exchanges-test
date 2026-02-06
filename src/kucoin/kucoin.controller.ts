@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Body, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Query, Body, UseInterceptors, Param } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { KucoinService } from './kucoin.service';
 import { jsObjectToStruct } from '../lib/grpc-struct';
@@ -59,6 +59,40 @@ export class KucoinController {
       status: 200,
       ok: true,
       data: { list: data },
+    };
+  }
+
+  @Get('mark-price/:symbol/current')
+  async getMarkPriceCurrent(@Param('symbol') symbolParam: string, @Query() query?: any) {
+    // HTTP handler: use route param and optional query
+    const timeoutMs: number | undefined = typeof query?.timeoutMs === 'number' ? query.timeoutMs : undefined;
+    if (!symbolParam) {
+      return { status: 400, ok: false, data: { error: 'symbol is required' } };
+    }
+
+    const data = await this.kucoinService.getMarkPriceCurrent(symbolParam, { timeoutMs });
+    return {
+      status: 200,
+      ok: true,
+      data,
+    };
+  }
+
+  @GrpcMethod('KucoinService', 'GetMarkPriceCurrent')
+  async getMarkPriceCurrentGrpc(payload: any) {
+    // gRPC handler: payload contains { symbol, timeoutMs }
+    const symbol = payload?.symbol;
+    const timeoutMs: number | undefined = typeof payload?.timeoutMs === 'number' ? payload.timeoutMs : undefined;
+
+    if (!symbol) {
+      return { status: 400, ok: false, data: { error: 'symbol is required' } };
+    }
+
+    const data = await this.kucoinService.getMarkPriceCurrent(symbol, { timeoutMs });
+    return {
+      status: 200,
+      ok: true,
+      data,
     };
   }
 

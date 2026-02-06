@@ -469,4 +469,44 @@ export class KucoinService {
       throw err;
     }
   }
+
+  async getMarkPriceCurrent(symbol: string, opts: { timeoutMs?: number } = {}) {
+    const baseURL = 'https://api.kucoin.com';
+    const timeout = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
+    const url = `/api/v1/mark-price/${encodeURIComponent(symbol)}/current`;
+
+    try {
+      const res = await this.httpService.axiosRef.request({
+        baseURL,
+        url,
+        method: 'GET',
+        timeout,
+        validateStatus: () => true,
+      });
+
+      if (!res || !res.data) {
+        throw new Error(`Empty response from KuCoin (http status ${res && res.status})`);
+      }
+
+      const { code, data, msg } = res.data;
+
+      if (code && code !== '200000') {
+        const reason = typeof msg === 'string' ? msg : JSON.stringify(res.data);
+        const err = new Error(`KuCoin API error code=${code}: ${reason}`);
+        (err as any).payload = res.data;
+        throw err;
+      }
+
+      console.log('KuCoin mark price response data:', res);
+
+      return data;
+    } catch (err) {
+      if ((err as any).response && (err as any).response.data) {
+        const e = new Error(`KuCoin request failed: ${JSON.stringify((err as any).response.data)}`);
+        (e as any).payload = (err as any).response.data;
+        throw e;
+      }
+      throw err;
+    }
+  }
 }
