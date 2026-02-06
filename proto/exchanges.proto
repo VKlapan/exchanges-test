@@ -8,8 +8,8 @@ import "google/protobuf/struct.proto";
 service KucoinService {
 	rpc GetBrokerInfo (BrokerInfoRequest) returns (GenericResponse);
 	rpc GetAccounts (AccountsRequest) returns (GenericResponse);
-	rpc GetCurrencies (Empty) returns (GenericResponse);
-	rpc GetPrices (PricesRequest) returns (GenericResponse);
+	rpc GetCurrencies (optionalTimeOutRequest) returns (GenericResponse);
+	rpc GetPrices (optionalTimeOutRequest) returns (GenericResponse);
 	rpc GetSubAccounts (Empty) returns (GenericResponse);
 }
 
@@ -37,7 +37,7 @@ message GenericResponse {
 
 message Empty {}
 
-message PricesRequest {
+message optionalTimeOutRequest {
 	// Optional timeout in milliseconds for the request
 	int32 timeoutMs = 1;
 }

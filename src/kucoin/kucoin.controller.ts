@@ -1,8 +1,11 @@
-import { Controller, Get, Query, Body } from '@nestjs/common';
+import { Controller, Get, Query, Body, UseInterceptors } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { KucoinService } from './kucoin.service';
+import { jsObjectToStruct } from '../lib/grpc-struct';
+import { GrpcStructInterceptor } from '../lib/grpc-struct.interceptor';
 
 @Controller('kucoin')
+@UseInterceptors(GrpcStructInterceptor)
 export class KucoinController {
   constructor(private readonly kucoinService: KucoinService) {}
 
@@ -78,10 +81,16 @@ export class KucoinController {
       typeof src?.timeoutMs === 'number' ? src.timeoutMs : undefined;
 
     const data = await this.kucoinService.getPrices({ timeoutMs });
+    // Log the raw data returned from the service to diagnose gRPC serialization issues
+    console.log('Raw data from getPrices:');
+    console.dir(data, { depth: null });
+
+    // For HTTP return plain JSON; the global interceptor will convert to Struct for RPC
+    const pricesJson = JSON.parse(JSON.stringify(data));
     return {
       status: 200,
       ok: true,
-      data: { prices: data },
+      data: { prices: pricesJson },
     };
   }
 }
