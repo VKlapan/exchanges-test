@@ -29,31 +29,29 @@ export class HuobiController {
     return out;
   }
 
-    @Get('market-depth')
+  @Get('market-depth')
   getMarketDepth() {
     const out = this.huobiService.requestSigned(
       'GET',
       'api.huobi.pro',
       '/market/depth',
-      {symbol: 'btcusdt', type: 'step0' },
+      { symbol: 'btcusdt', type: 'step0' },
     );
 
     return out;
   }
 
-
-    @Get('tickets')
+  @Get('tickets')
   getTickets() {
     const out = this.huobiService.requestSigned(
       'GET',
       'api.huobi.pro',
       '/market/tickers',
-      {}, 
+      {},
     );
 
     return out;
   }
-
 
   @Get('symbols-settings')
   getSymbolsSettings() {
@@ -61,7 +59,7 @@ export class HuobiController {
       'GET',
       'api.huobi.pro',
       '/v1/common/symbols',
-      {currency: 'usdt'}, 
+      { currency: 'usdt' },
     );
 
     return out;
@@ -73,10 +71,9 @@ export class HuobiController {
       'GET',
       'api.huobi.pro',
       '/v2/reference/currencies',
-      {}, 
+      {},
     );
 
     return out;
   }
-
 }

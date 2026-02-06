@@ -23,7 +23,8 @@ export class AppConfigService {
     return {
       apiKey: this.configService.get<string>('KUCOIN_API_KEY') || '',
       secretKey: this.configService.get<string>('KUCOIN_SECRET_KEY') || '',
-      apiPassPhrase: this.configService.get<string>('KUCOIN_API_PASSPHRASE') || '',
+      apiPassPhrase:
+        this.configService.get<string>('KUCOIN_API_PASSPHRASE') || '',
       brokerName: this.configService.get<string>('KUCOIN_BROKER_NAME') || '',
       apiPartner: this.configService.get<string>('KUCOIN_API_PARTNER') || '',
       apiPartnerSecretKey:

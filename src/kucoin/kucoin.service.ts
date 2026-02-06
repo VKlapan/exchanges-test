@@ -33,7 +33,7 @@ export class KucoinService {
     body: Record<string, any> | string | null,
     keyVersion = '2',
   ) {
-    const timestamp = Date.now().toString(); //'1680885532722' 
+    const timestamp = Date.now().toString(); //'1680885532722'
 
     const requestPath = path;
     let queryString = '';
@@ -275,136 +275,198 @@ export class KucoinService {
     };
   }
 
-  async getCurrenciesWithChains(opts: { baseURL?: string; timeoutMs?: number } = {}) {
-  const baseURL = opts.baseURL || 'https://api.kucoin.com';
-  const timeout = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
-  const url = '/api/v3/currencies';
+  async getCurrenciesWithChains(opts: { timeoutMs?: number } = {}) {
+    const baseURL = 'https://api.kucoin.com';
+    const timeout = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
+    const url = '/api/v3/currencies';
 
-  try {
+    try {
+      const res = await this.httpService.axiosRef.request({
+        baseURL,
+        url,
+        method: 'GET',
+        timeout,
+        validateStatus: () => true,
+      });
+
+      if (!res || !res.data) {
+        throw new Error(
+          `Empty response from KuCoin (http status ${res && res.status})`,
+        );
+      }
+
+      const { code, data, msg } = res.data;
+
+      if (code && code !== '200000') {
+        const reason = typeof msg === 'string' ? msg : JSON.stringify(res.data);
+        const err = new Error(`KuCoin API error code=${code}: ${reason}`);
+        (err as any).payload = res.data;
+        throw err;
+      }
+
+      if (!Array.isArray(data)) return [];
+
+      const coins = data.map((item) => {
+        const {
+          currency,
+          name,
+          fullName,
+          precision,
+          confirms,
+          contractAddress,
+          isMarginEnabled,
+          isDebitEnabled,
+          chains,
+        } = item;
+
+        const normalizedChains = Array.isArray(chains)
+          ? chains.map((ch) => ({
+              chainName: ch.chainName || '',
+              chainId: ch.chainId || '',
+              depositEnabled: Boolean(ch.isDepositEnabled),
+              withdrawEnabled: Boolean(ch.isWithdrawEnabled),
+              needTag: Boolean(ch.needTag),
+              confirms: Number(ch.confirms) || 0,
+              preConfirms: Number(ch.preConfirms) || 0,
+              depositMinSize: ch.depositMinSize
+                ? Number(ch.depositMinSize)
+                : null,
+              withdrawalMinSize: ch.withdrawalMinSize
+                ? Number(ch.withdrawalMinSize)
+                : null,
+              withdrawalMinFee: ch.withdrawalMinFee
+                ? Number(ch.withdrawalMinFee)
+                : null,
+              withdrawPrecision: ch.withdrawPrecision
+                ? Number(ch.withdrawPrecision)
+                : null,
+              contractAddress: ch.contractAddress || '',
+              raw: ch,
+            }))
+          : [];
+
+        return {
+          currency,
+          name,
+          fullName,
+          precision: Number(precision) || 0,
+          confirms: Number(confirms) || 0,
+          contractAddress: contractAddress || '',
+          isMarginEnabled: Boolean(isMarginEnabled),
+          isDebitEnabled: Boolean(isDebitEnabled),
+          chains: normalizedChains,
+          raw: item,
+        };
+      });
+
+      return coins;
+    } catch (err) {
+      if ((err as any).response && (err as any).response.data) {
+        const e = new Error(
+          `KuCoin request failed: ${JSON.stringify((err as any).response.data)}`,
+        );
+        (e as any).payload = (err as any).response.data;
+        throw e;
+      }
+      throw err;
+    }
+  }
+
+  async getSubAccounts() {
+    const apiKey = process.env.KUCOIN_MAIN_KEY || '';
+    const apiSecret = process.env.KUCOIN_MAIN_SECRET || '';
+    const apiPassphrase = process.env.KUCOIN_MAIN_PASSPHRASE || '';
+    const apiKeyVersion = process.env.KUCOIN_MAIN_KEY_VERSION || '2';
+    const timeoutMs = 15000;
+
+    const BASE = 'https://api.kucoin.com';
+    const path = '/api/v2/sub/user';
+    const method = 'GET';
+    const ts = Date.now().toString();
+
+    const prehash = `${ts}${method}${path}`;
+    const sign = crypto
+      .createHmac('sha256', apiSecret)
+      .update(prehash)
+      .digest('base64');
+
+    const passphraseHeader =
+      String(apiKeyVersion) === '1'
+        ? apiPassphrase
+        : crypto
+            .createHmac('sha256', apiSecret)
+            .update(apiPassphrase)
+            .digest('base64');
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'KC-API-KEY': apiKey,
+      'KC-API-SIGN': sign,
+      'KC-API-TIMESTAMP': ts,
+      'KC-API-PASSPHRASE': passphraseHeader,
+      'KC-API-KEY-VERSION': String(apiKeyVersion),
+    };
+
     const res = await this.httpService.axiosRef.request({
-      baseURL,
-      url,
-      method: 'GET',
-      timeout,
+      baseURL: BASE,
+      url: path,
+      method,
+      headers,
+      timeout: timeoutMs,
       validateStatus: () => true,
     });
 
-    if (!res || !res.data) {
-      throw new Error(`Empty response from KuCoin (http status ${res && res.status})`);
-    }
+    if (!res?.data) throw new Error(`Empty response (status ${res.status})`);
 
     const { code, data, msg } = res.data;
 
-    if (code && code !== '200000') {
-      const reason = typeof msg === 'string' ? msg : JSON.stringify(res.data);
-      const err = new Error(`KuCoin API error code=${code}: ${reason}`);
-      (err as any).payload = res.data;
+    if (code !== '200000')
+      throw new Error(`KuCoin API error ${code}: ${msg || 'unknown'}`);
+
+    return data || [];
+  }
+
+  async getPrices(opts: { timeoutMs?: number } = {}) {
+    const baseURL = 'https://api.kucoin.com';
+    const timeout = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
+    const url = '/api/v1/prices';
+
+    try {
+      const res = await this.httpService.axiosRef.request({
+        baseURL,
+        url,
+        method: 'GET',
+        timeout,
+        validateStatus: () => true,
+      });
+
+      if (!res || !res.data) {
+        throw new Error(
+          `Empty response from KuCoin (http status ${res && res.status})`,
+        );
+      }
+
+      const { code, data, msg } = res.data;
+
+      if (code && code !== '200000') {
+        const reason = typeof msg === 'string' ? msg : JSON.stringify(res.data);
+        const err = new Error(`KuCoin API error code=${code}: ${reason}`);
+        (err as any).payload = res.data;
+        throw err;
+      }
+
+      if (data === null || Object.keys(data).length === 0) return {};
+
+      return data;
+    } catch (err) {
+      if ((err as any).response && (err as any).response.data) {
+        const e = new Error(
+          `KuCoin request failed: ${JSON.stringify((err as any).response.data)}`,
+        );
+        (e as any).payload = (err as any).response.data;
+        throw e;
+      }
       throw err;
     }
-
-    if (!Array.isArray(data)) return [];
-
-    const coins = data.map(item => {
-      const {
-        currency,
-        name,
-        fullName,
-        precision,
-        confirms,
-        contractAddress,
-        isMarginEnabled,
-        isDebitEnabled,
-        chains,
-      } = item;
-
-      const normalizedChains = Array.isArray(chains)
-        ? chains.map(ch => ({
-            chainName: ch.chainName || '',
-            chainId: ch.chainId || '',
-            depositEnabled: Boolean(ch.isDepositEnabled),
-            withdrawEnabled: Boolean(ch.isWithdrawEnabled),
-            needTag: Boolean(ch.needTag),
-            confirms: Number(ch.confirms) || 0,
-            preConfirms: Number(ch.preConfirms) || 0,
-            depositMinSize: ch.depositMinSize ? Number(ch.depositMinSize) : null,
-            withdrawalMinSize: ch.withdrawalMinSize ? Number(ch.withdrawalMinSize) : null,
-            withdrawalMinFee: ch.withdrawalMinFee ? Number(ch.withdrawalMinFee) : null,
-            withdrawPrecision: ch.withdrawPrecision ? Number(ch.withdrawPrecision) : null,
-            contractAddress: ch.contractAddress || '',
-            raw: ch,
-          }))
-        : [];
-
-      return {
-        currency,
-        name,
-        fullName,
-        precision: Number(precision) || 0,
-        confirms: Number(confirms) || 0,
-        contractAddress: contractAddress || '',
-        isMarginEnabled: Boolean(isMarginEnabled),
-        isDebitEnabled: Boolean(isDebitEnabled),
-        chains: normalizedChains,
-        raw: item,
-      };
-    });
-    
-    return coins;
-  } catch (err) {
-    if ((err as any).response && (err as any).response.data) {
-      const e = new Error(`KuCoin request failed: ${JSON.stringify((err as any).response.data)}`);
-      (e as any).payload = (err as any).response.data;
-      throw e;
-    }
-    throw err;
   }
-  }
-
-  async getSubAccounts(opts = {}) {
-  const apiKey = process.env.KUCOIN_MAIN_KEY || '';
-  const apiSecret = process.env.KUCOIN_MAIN_SECRET || '';
-  const apiPassphrase = process.env.KUCOIN_MAIN_PASSPHRASE || '';
-  const apiKeyVersion = process.env.KUCOIN_MAIN_KEY_VERSION || '2';
-  const timeoutMs = 15000;
-
-  const BASE = 'https://api.kucoin.com';
-  const path = '/api/v2/sub/user';
-  const method = 'GET';
-  const ts = Date.now().toString();
-
-  const prehash = `${ts}${method}${path}`;
-  const sign = crypto.createHmac('sha256', apiSecret).update(prehash).digest('base64');
-
-  const passphraseHeader =
-    String(apiKeyVersion) === '1'
-      ? apiPassphrase
-      : crypto.createHmac('sha256', apiSecret).update(apiPassphrase).digest('base64');
-
-  const headers = {
-    'Content-Type': 'application/json',
-    'KC-API-KEY': apiKey,
-    'KC-API-SIGN': sign,
-    'KC-API-TIMESTAMP': ts,
-    'KC-API-PASSPHRASE': passphraseHeader,
-    'KC-API-KEY-VERSION': String(apiKeyVersion),
-  };
-
-  const res = await this.httpService.axiosRef.request({
-    baseURL: BASE,
-    url: path,
-    method,
-    headers,
-    timeout: timeoutMs,
-    validateStatus: () => true,
-  });
-
-  if (!res?.data) throw new Error(`Empty response (status ${res.status})`);
-
-  const { code, data, msg } = res.data;
-
-  if (code !== '200000') throw new Error(`KuCoin API error ${code}: ${msg || 'unknown'}`);
-
-  return data || [];
-  }
-
 }

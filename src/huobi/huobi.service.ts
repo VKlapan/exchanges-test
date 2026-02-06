@@ -139,7 +139,7 @@ export class HuobiService {
     };
   }
 
-    async requestSigned(
+  async requestSigned(
     method: 'GET' | 'POST',
     host: string,
     path: string,

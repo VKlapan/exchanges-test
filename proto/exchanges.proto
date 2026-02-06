@@ -1,0 +1,44 @@
+
+syntax = "proto3";
+
+package exchanges;
+
+import "google/protobuf/struct.proto";
+
+service KucoinService {
+	rpc GetBrokerInfo (BrokerInfoRequest) returns (GenericResponse);
+	rpc GetAccounts (AccountsRequest) returns (GenericResponse);
+	rpc GetCurrencies (Empty) returns (GenericResponse);
+	rpc GetPrices (PricesRequest) returns (GenericResponse);
+	rpc GetSubAccounts (Empty) returns (GenericResponse);
+}
+
+message BrokerInfoRequest {
+	string host = 1;
+	string path = 2;
+	string keyVersion = 3;
+	google.protobuf.Struct body = 4;
+}
+
+message AccountsRequest {
+	string method = 1;
+	string endpoint = 2;
+	string keyVersion = 3;
+	google.protobuf.Struct body = 4;
+	string host = 5;
+	string siteType = 6;
+}
+
+message GenericResponse {
+	int32 status = 1;
+	bool ok = 2;
+	google.protobuf.Struct data = 3;
+}
+
+message Empty {}
+
+message PricesRequest {
+	// Optional timeout in milliseconds for the request
+	int32 timeoutMs = 1;
+}
+
